@@ -12,7 +12,7 @@ const loginController = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    const token = await setAuthTokens(user._id, res);
+    const { token } = await setAuthTokens(user._id, res);
 
     return res.status(200).send({ token, user });
   } catch (err) {

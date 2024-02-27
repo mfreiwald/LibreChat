@@ -20,7 +20,7 @@ const registrationController = async (req, res) => {
         newUser = new User(user);
         await newUser.save();
       }
-      const token = await setAuthTokens(user._id, res);
+      const { token } = await setAuthTokens(user._id, res);
       res.setHeader('Authorization', `Bearer ${token}`);
       res.status(status).send({ user });
     } else {
@@ -85,7 +85,7 @@ const refreshController = async (req, res) => {
     }
 
     if (process.env.NODE_ENV === 'CI') {
-      const token = await setAuthTokens(userId, res);
+      const { token } = await setAuthTokens(userId, res);
       const userObj = user.toJSON();
       return res.status(200).send({ token, user: userObj });
     }
@@ -97,7 +97,7 @@ const refreshController = async (req, res) => {
     // Find the session with the hashed refresh token
     const session = await Session.findOne({ user: userId, refreshTokenHash: hashedToken });
     if (session && session.expiration > new Date()) {
-      const token = await setAuthTokens(userId, res, session._id);
+      const { token } = await setAuthTokens(userId, res, session._id);
       const userObj = user.toJSON();
       res.status(200).send({ token, user: userObj });
     } else if (req?.query?.retry) {

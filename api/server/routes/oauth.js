@@ -6,6 +6,7 @@ const router = express.Router();
 const { setAuthTokens } = require('~/server/services/AuthService');
 const { loginLimiter, checkBan } = require('~/server/middleware');
 const { logger } = require('~/config');
+const { generators } = require('openid-client');
 
 const domains = {
   client: process.env.DOMAIN_CLIENT,
@@ -20,23 +21,57 @@ const oauthHandler = async (req, res) => {
     if (req.banned) {
       return;
     }
-    await setAuthTokens(req.user._id, res);
-    res.redirect(domains.client);
+
+    const { token, refreshToken } = await setAuthTokens(req.user._id, res);
+
+    const alternativeRedirect = readRedirectFromState(req);
+    if (alternativeRedirect) {
+      res.redirect(alternativeRedirect + '?token=' + token + '&refreshToken=' + refreshToken);
+    } else {
+      res.redirect(domains.client);
+    }
   } catch (err) {
     logger.error('Error in setting authentication tokens:', err);
   }
 };
 
+const generateState = (req) => {
+  let state;
+  if (req.query.redirect) {
+    const value = {
+      redirect: req.query.redirect,
+    };
+    state = btoa(JSON.stringify(value));
+  } else {
+    state = generators.state();
+  }
+  return state;
+};
+
+const readRedirectFromState = (req) => {
+  if (req.query.state) {
+    try {
+      const value = JSON.parse(atob(req.query.state));
+      if (value) {
+        return value.redirect;
+      }
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+};
+
 /**
  * Google Routes
  */
-router.get(
-  '/google',
+router.get('/google', (req, res, next) => {
   passport.authenticate('google', {
     scope: ['openid', 'profile', 'email'],
     session: false,
-  }),
-);
+    state: generateState(req),
+  })(req, res, next);
+});
 
 router.get(
   '/google/callback',
@@ -49,14 +84,14 @@ router.get(
   oauthHandler,
 );
 
-router.get(
-  '/facebook',
+router.get('/facebook', (req, res, next) => {
   passport.authenticate('facebook', {
     scope: ['public_profile'],
     profileFields: ['id', 'email', 'name'],
     session: false,
-  }),
-);
+    state: generateState(req),
+  })(req, res, next);
+});
 
 router.get(
   '/facebook/callback',
@@ -70,12 +105,12 @@ router.get(
   oauthHandler,
 );
 
-router.get(
-  '/openid',
+router.get('/openid', (req, res, next) => {
   passport.authenticate('openid', {
     session: false,
-  }),
-);
+    state: generateState(req),
+  })(req, res, next);
+});
 
 router.get(
   '/openid/callback',
@@ -87,13 +122,13 @@ router.get(
   oauthHandler,
 );
 
-router.get(
-  '/github',
+router.get('/github', (req, res, next) => {
   passport.authenticate('github', {
     scope: ['user:email', 'read:user'],
     session: false,
-  }),
-);
+    state: generateState(req),
+  })(req, res, next);
+});
 
 router.get(
   '/github/callback',
@@ -105,13 +140,13 @@ router.get(
   }),
   oauthHandler,
 );
-router.get(
-  '/discord',
+router.get('/discord', (req, res, next) => {
   passport.authenticate('discord', {
     scope: ['identify', 'email'],
     session: false,
-  }),
-);
+    state: generateState(req),
+  })(req, res, next);
+});
 
 router.get(
   '/discord/callback',

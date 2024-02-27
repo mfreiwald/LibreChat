@@ -258,7 +258,7 @@ const setAuthTokens = async (userId, res, sessionId = null) => {
       sameSite: 'strict',
     });
 
-    return token;
+    return { token, refreshToken };
   } catch (error) {
     logger.error('[setAuthTokens] Error in setting authentication tokens:', error);
     throw error;
